@@ -19,16 +19,32 @@ app.use(cors(
         credentials: true
     }
 ));
+
+// server/index.js (Check this part)
+
+// ...
 app.use(express.json());
 
-// Database Connection
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log(err));
+// Enable CORS for all origins, which is standard for MERN during development
+const corsOptions = {
+    origin: '*', // Allows all origins
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+};
+
+app.use(cors(corsOptions));
+// ...
+
+// app.use(express.json());
+
+// // Database Connection
+// mongoose.connect(process.env.MONGO_URI)
+//     .then(() => console.log('MongoDB Connected'))
+//     .catch(err => console.log(err));
 
 // --- 2. INTEGRATE AUTH ROUTES ---
 // All authentication (register/login) will be accessed via the /auth endpoint
-app.use('/auth', authRoutes);
+// app.use('/auth', authRoutes);
 
 
 // --- 3. TICKET ROUTES (Now requiring the imported model) ---
