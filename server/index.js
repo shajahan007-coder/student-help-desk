@@ -52,19 +52,32 @@ app.get('/tickets', protect, async (req, res) => {
     }
 });
 
-// 2. POST new ticket
-// Logic: Automatically attach the logged-in User's ID to the ticket
+// ... (Keep your imports and database connection as they are)
+
+// --- TICKET ROUTES (SECURED) ---
+
+// 2. POST new ticket - FIXED LOGIC
+// server/index.js
+
 app.post('/createTicket', protect, async (req, res) => {
     try {
+        console.log("User from middleware:", req.user); // DEBUG: Check your console!
+
         const newTicket = await Ticket.create({
-            ...req.body,
-            user: req.user.id // Critical: Stamping ownership
+            studentName: req.body.studentName,
+            issue: req.body.issue,
+            // Use req.user.id because your middleware sets req.user = decoded.user
+            user: req.user.id 
         });
+        
         res.json(newTicket);
     } catch (err) {
+        console.error("Final Submit Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
+
+// ... (Keep the rest of your routes)
 
 // 3. DELETE a ticket (Ownership Loophole Fixed)
 app.delete('/tickets/:id', protect, async (req, res) => {
