@@ -50,7 +50,6 @@ JSON Web Token	Secure authentication
 🛠️ Installation & Setup
 1. Clone the repository
 Bash
-git clone https://github.com/yourusername/student-help-desk.git
 cd student-help-desk
 2. Backend Setup
 Navigate to the server folder: cd server
@@ -80,10 +79,9 @@ GET	/tickets	Private	Fetch tickets (Filtered by Role)
 POST	/createTicket	Student	Create a new support request
 DELETE	/tickets/:id	Owner/Admin	Delete a specific ticket
 PUT	/tickets/:id/resolve	Admin	Mark a ticket as resolved
-📸 Screenshots
-Tip: Take screenshots of your Login page and Dashboards, upload them to a folder named screenshots in your repo, and link them here.
+
 
 📜 License
 Distributed under the MIT License. See LICENSE for more information.
 
-👤 Project Link: https://github.com/yourusername/student-help-desk
+
