@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const xss = require('xss'); // ADDED: Protection against malicious scripts
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth'); 
@@ -9,17 +11,24 @@ const { protect, adminOnly } = require('./middleware/authMiddleware');
 
 const app = express();
 
+// --- SECURITY: Rate Limiting ---
+const apiLimiter = rateLimit({ 
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: { msg: "Too many requests, please try again later." }
+});
+app.use('/auth/', apiLimiter);
+
 // --- CONFIGURATION ---
 const FRONTEND_URL = 'https://student-help-desk-nine.vercel.app'; 
 
 // --- MIDDLEWARE ---
 app.use(express.json());
 
-// FIXED: Explicitly allowing Authorization headers to fix the 401 error
 const corsOptions = {
     origin: FRONTEND_URL, 
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: ['Content-Type', 'Authorization'], // CRITICAL: Tell browser Auth header is allowed
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     optionsSuccessStatus: 204 
 };
@@ -33,7 +42,11 @@ mongoose.connect(process.env.MONGO_URI)
 // --- ROUTES ---
 
 app.get('/', (req, res) => {
-    res.json({ message: "Student Help Desk API Operational" });
+    res.json({ 
+        message: "Student Help Desk API Operational",
+        status: "Active",
+        timestamp: new Date()
+    });
 });
 
 app.use('/auth', authRoutes);
@@ -43,7 +56,6 @@ app.use('/auth', authRoutes);
 // 1. GET Tickets (Filtered by Role)
 app.get('/tickets', protect, async (req, res) => {
     try {
-        // req.user.id comes from decoded.user in your middleware
         const query = req.user.role === 'admin' ? {} : { user: req.user.id };
         const tickets = await Ticket.find(query).sort({ date: -1 });
         res.json(tickets);
@@ -52,7 +64,7 @@ app.get('/tickets', protect, async (req, res) => {
     }
 });
 
-// 2. POST new ticket (Attached to User)
+// 2. POST new ticket (UPGRADED WITH XSS PROTECTION)
 app.post('/createTicket', protect, async (req, res) => {
     try {
         const { studentName, issue } = req.body;
@@ -61,15 +73,18 @@ app.post('/createTicket', protect, async (req, res) => {
             return res.status(400).json({ msg: "Missing required fields" });
         }
 
+        // XSS Cleaning: Prevents hackers from injecting <script> tags
+        const cleanName = xss(studentName);
+        const cleanIssue = xss(issue);
+
         const newTicket = await Ticket.create({
-            studentName,
-            issue,
-            user: req.user.id // Ownership stamping
+            studentName: cleanName,
+            issue: cleanIssue,
+            user: req.user.id 
         });
         
-        res.json(newTicket);
+        res.status(201).json(newTicket);
     } catch (err) {
-        console.error("POST Ticket Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -85,7 +100,6 @@ app.delete('/tickets/:id', protect, async (req, res) => {
         const ticket = await Ticket.findById(id);
         if (!ticket) return res.status(404).json({ msg: 'Ticket not found' });
 
-        // Security check: Only owner or admin
         if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ msg: 'Forbidden: You do not own this ticket' });
         }
@@ -97,22 +111,31 @@ app.delete('/tickets/:id', protect, async (req, res) => {
     }
 });
 
-// 4. PUT resolve ticket (Admin Only)
+// 4. PUT resolve ticket (Admin Only with Remarks)
 app.put('/tickets/:id/resolve', protect, adminOnly, async (req, res) => {
     try {
+        const { remark } = req.body; 
+        
+        // Also clean the admin's remark for safety
+        const cleanRemark = xss(remark);
+
         const ticket = await Ticket.findByIdAndUpdate(
             req.params.id,
-            { status: 'Resolved' },
+            { 
+                status: 'Resolved',
+                adminRemark: cleanRemark || "Issue has been addressed by the technical team.",
+                updatedAt: Date.now()
+            },
             { new: true }
         );
+        
         if (!ticket) return res.status(404).json({ msg: 'Ticket not found' });
         res.json(ticket);
     } catch (err) {
-        res.status(500).send('Server error');
+        res.status(500).json({ error: 'Server error while resolving ticket' });
     }
 });
 
-// --- VERCEL EXPORT ---
 if (require.main === module) {
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`🚀 Server ready on port ${PORT}.`));
