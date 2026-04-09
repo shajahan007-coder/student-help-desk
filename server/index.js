@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
-const xss = require('xss'); // ADDED: Protection against malicious scripts
+const xss = require('xss');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth'); 
@@ -11,6 +11,34 @@ const { protect, adminOnly } = require('./middleware/authMiddleware');
 
 const app = express();
 
+// --- CONFIGURATION ---
+const FRONTEND_URL = 'https://student-help-desk-nine.vercel.app'; 
+
+// --- MIDDLEWARE ---
+app.use(express.json());
+
+// 1. EXTRA CORS SAFETY: Handing the Preflight OPTIONS request manually
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', FRONTEND_URL);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    
+    // If it's a preflight request, respond immediately with 204
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+    }
+    next();
+});
+
+// 2. Standard CORS Middleware
+const corsOptions = {
+    origin: FRONTEND_URL,
+    credentials: true,
+    optionsSuccessStatus: 204 
+};
+app.use(cors(corsOptions));
+
 // --- SECURITY: Rate Limiting ---
 const apiLimiter = rateLimit({ 
     windowMs: 15 * 60 * 1000, 
@@ -18,21 +46,6 @@ const apiLimiter = rateLimit({
     message: { msg: "Too many requests, please try again later." }
 });
 app.use('/auth/', apiLimiter);
-
-// --- CONFIGURATION ---
-const FRONTEND_URL = 'https://student-help-desk-nine.vercel.app'; 
-
-// --- MIDDLEWARE ---
-app.use(express.json());
-
-const corsOptions = {
-    origin: FRONTEND_URL, 
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    optionsSuccessStatus: 204 
-};
-app.use(cors(corsOptions));
 
 // --- DATABASE CONNECTION ---
 mongoose.connect(process.env.MONGO_URI)
@@ -53,7 +66,6 @@ app.use('/auth', authRoutes);
 
 // --- TICKET ROUTES (SECURED) ---
 
-// 1. GET Tickets (Filtered by Role)
 app.get('/tickets', protect, async (req, res) => {
     try {
         const query = req.user.role === 'admin' ? {} : { user: req.user.id };
@@ -64,75 +76,52 @@ app.get('/tickets', protect, async (req, res) => {
     }
 });
 
-// 2. POST new ticket (UPGRADED WITH XSS PROTECTION)
 app.post('/createTicket', protect, async (req, res) => {
     try {
         const { studentName, issue } = req.body;
-        
-        if (!studentName || !issue) {
-            return res.status(400).json({ msg: "Missing required fields" });
-        }
-
-        // XSS Cleaning: Prevents hackers from injecting <script> tags
-        const cleanName = xss(studentName);
-        const cleanIssue = xss(issue);
+        if (!studentName || !issue) return res.status(400).json({ msg: "Missing fields" });
 
         const newTicket = await Ticket.create({
-            studentName: cleanName,
-            issue: cleanIssue,
+            studentName: xss(studentName),
+            issue: xss(issue),
             user: req.user.id 
         });
-        
         res.status(201).json(newTicket);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 3. DELETE a ticket (Ownership Check)
 app.delete('/tickets/:id', protect, async (req, res) => {
     try {
-        const { id } = req.params;
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({ msg: 'Invalid ID format' });
-        }
-
-        const ticket = await Ticket.findById(id);
+        const ticket = await Ticket.findById(req.params.id);
         if (!ticket) return res.status(404).json({ msg: 'Ticket not found' });
 
         if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ msg: 'Forbidden: You do not own this ticket' });
+            return res.status(403).json({ msg: 'Forbidden' });
         }
 
-        await Ticket.findByIdAndDelete(id);
-        res.json({ msg: 'Ticket deleted successfully', id });
+        await Ticket.findByIdAndDelete(req.params.id);
+        res.json({ msg: 'Deleted successfully' });
     } catch (err) {
-        res.status(500).json({ error: 'Server error during deletion' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
-// 4. PUT resolve ticket (Admin Only with Remarks)
 app.put('/tickets/:id/resolve', protect, adminOnly, async (req, res) => {
     try {
-        const { remark } = req.body; 
-        
-        // Also clean the admin's remark for safety
-        const cleanRemark = xss(remark);
-
         const ticket = await Ticket.findByIdAndUpdate(
             req.params.id,
             { 
                 status: 'Resolved',
-                adminRemark: cleanRemark || "Issue has been addressed by the technical team.",
+                adminRemark: xss(req.body.remark) || "Issue has been addressed.",
                 updatedAt: Date.now()
             },
             { new: true }
         );
-        
-        if (!ticket) return res.status(404).json({ msg: 'Ticket not found' });
         res.json(ticket);
     } catch (err) {
-        res.status(500).json({ error: 'Server error while resolving ticket' });
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
