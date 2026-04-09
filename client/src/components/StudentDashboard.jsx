@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Send, LogOut, Loader2 } from 'lucide-react';
+import { Trash2, Send, LogOut, Loader2, Calendar, MessageSquare } from 'lucide-react';
 
 const API_URL = "https://student-help-desk-api.vercel.app"; 
 
@@ -11,11 +11,9 @@ function StudentDashboard() {
     const [issue, setIssue] = useState("");
     const [loading, setLoading] = useState(true);
     
-    // Get Token and User details safely
     const token = localStorage.getItem('token');
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
 
-    // 1. Fetch "My Tickets"
     const fetchTickets = async () => {
         if (!token) return;
         try {
@@ -40,18 +38,8 @@ function StudentDashboard() {
         }
     }, [token]);
 
-    // 2. Submit Ticket
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        // Critical Debug: Check if token exists in console
-        console.log("Submitting with token:", token ? "Token Found" : "MISSING TOKEN");
-
-        if (!token) {
-            alert("Session missing. Please login again.");
-            return;
-        }
-
         try {
             const res = await axios.post(`${API_URL}/createTicket`, 
                 { studentName: name, issue },
@@ -62,29 +50,24 @@ function StudentDashboard() {
                     } 
                 }
             );
-            
             setTickets([res.data, ...tickets]); 
             setName("");
             setIssue("");
             alert("Ticket created successfully!");
         } catch (err) {
-            console.error("Submission Error Details:", err.response?.data);
-            const msg = err.response?.data?.msg || "Failed to submit ticket.";
-            alert(`Error: ${msg}`);
+            alert(`Error: ${err.response?.data?.msg || "Failed to submit"}`);
         }
     };
 
-    // 3. Delete Ticket
     const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure?")) return;
-
+        if (!window.confirm("Delete this request?")) return;
         try {
             await axios.delete(`${API_URL}/tickets/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setTickets(tickets.filter(t => t._id !== id));
         } catch (err) {
-            alert(err.response?.data?.msg || "Delete failed.");
+            alert("Delete failed.");
         }
     };
 
@@ -95,27 +78,31 @@ function StudentDashboard() {
 
     return (
         <div className="dashboard-container" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+            {/* Header Section */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                 <div>
                     <h2 style={{ margin: 0 }}>Student Dashboard</h2>
-                    <p style={{ color: '#64748b', margin: 0 }}>Logged in as: {userData?.email}</p>
+                    <p style={{ color: '#64748b', margin: 0 }}>Welcome, {userData?.email}</p>
                 </div>
-                <button onClick={handleLogout} className="nav-item highlight" style={{ border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <button onClick={handleLogout} className="btn-primary" style={{ backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <LogOut size={18} /> Logout
                 </button>
             </div>
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card">
-                <h3 style={{ marginTop: 0 }}><Send size={20} /> New Support Request</h3>
+            {/* New Ticket Form */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ marginBottom: '40px' }}>
+                <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Send size={20} color="#2563eb" /> New Support Request
+                </h3>
                 <form onSubmit={handleSubmit}>
-                    <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Your Name</label>
+                    <label style={{ fontSize: '14px', fontWeight: '600' }}>Your Name</label>
                     <input 
-                        type="text" placeholder="e.g. John Doe" value={name}
+                        type="text" placeholder="e.g. Shajahan" value={name}
                         onChange={(e) => setName(e.target.value)} required 
                     />
-                    <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Issue Details</label>
+                    <label style={{ fontSize: '14px', fontWeight: '600' }}>Issue Details</label>
                     <textarea 
-                        placeholder="Describe your problem..." value={issue}
+                        placeholder="Describe your technical issue or question..." value={issue}
                         onChange={(e) => setIssue(e.target.value)} required 
                         style={{ minHeight: '100px' }}
                     />
@@ -123,39 +110,62 @@ function StudentDashboard() {
                 </form>
             </motion.div>
 
-            <h3 style={{ marginTop: '40px' }}>Your Ticket History</h3>
+            {/* Ticket List Section */}
+            <h3><MessageSquare size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }} /> Your Ticket History</h3>
             
             {loading ? (
-                <div style={{ textAlign: 'center', padding: '20px' }}><Loader2 className="animate-spin" /></div>
+                <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="animate-spin" size={32} /></div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <AnimatePresence>
                         {tickets.length === 0 ? (
-                            <p style={{ textAlign: 'center', color: '#64748b' }}>No tickets found.</p>
+                            <p style={{ textAlign: 'center', color: '#64748b', padding: '20px' }}>No tickets submitted yet.</p>
                         ) : (
                             tickets.map(ticket => (
                                 <motion.div 
                                     key={ticket._id}
                                     layout
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
                                     className="card"
-                                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderLeft: `5px solid ${ticket.status === 'Open' ? '#f59e0b' : '#10b981'}` }}
+                                    style={{ 
+                                        borderLeft: `6px solid ${ticket.status === 'Open' ? '#f59e0b' : '#10b981'}`,
+                                        textAlign: 'left'
+                                    }}
                                 >
-                                    <div>
-                                        <span className={`badge ${ticket.status === 'Open' ? 'badge-open' : 'badge-resolved'}`}>
-                                            {ticket.status}
-                                        </span>
-                                        <p style={{ margin: '10px 0', fontWeight: '600' }}>{ticket.issue}</p>
-                                        <small style={{ color: '#94a3b8' }}>{new Date(ticket.date).toLocaleDateString()}</small>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+                                                <span className={`badge ${ticket.status === 'Open' ? 'badge-open' : 'badge-resolved'}`}>
+                                                    {ticket.status}
+                                                </span>
+                                                <small style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Calendar size={12} /> {new Date(ticket.date).toLocaleDateString()}
+                                                </small>
+                                            </div>
+                                            
+                                            <p style={{ margin: '10px 0', fontWeight: '600', fontSize: '1.1rem' }}>{ticket.issue}</p>
+                                            
+                                            {/* Admin Remark Section - Upgraded! */}
+                                            {ticket.status === 'Resolved' && ticket.adminRemark && (
+                                                <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', marginTop: '10px', border: '1px solid #bbf7d0' }}>
+                                                    <p style={{ margin: 0, fontSize: '13px', color: '#166534' }}>
+                                                        <strong style={{ display: 'block', marginBottom: '4px' }}>✅ Admin Response:</strong> 
+                                                        {ticket.adminRemark}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button 
+                                            onClick={() => handleDelete(ticket._id)}
+                                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '5px' }}
+                                            title="Delete Ticket"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
                                     </div>
-                                    <button 
-                                        onClick={() => handleDelete(ticket._id)}
-                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                                    >
-                                        <Trash2 size={20} />
-                                    </button>
                                 </motion.div>
                             ))
                         )}
