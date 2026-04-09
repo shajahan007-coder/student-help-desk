@@ -17,27 +17,26 @@ const FRONTEND_URL = 'https://student-help-desk-nine.vercel.app';
 // --- MIDDLEWARE ---
 app.use(express.json());
 
-// 1. EXTRA CORS SAFETY: Handing the Preflight OPTIONS request manually
+// 1. MANUAL CORS & PREFLIGHT HANDLER (Critical for Vercel)
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', FRONTEND_URL);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.header('Access-Control-Allow-Credentials', 'true');
     
-    // If it's a preflight request, respond immediately with 204
+    // Immediately respond to OPTIONS requests
     if (req.method === 'OPTIONS') {
         return res.sendStatus(204);
     }
     next();
 });
 
-// 2. Standard CORS Middleware
-const corsOptions = {
+// 2. Standard CORS Middleware (Safety backup)
+app.use(cors({
     origin: FRONTEND_URL,
     credentials: true,
     optionsSuccessStatus: 204 
-};
-app.use(cors(corsOptions));
+}));
 
 // --- SECURITY: Rate Limiting ---
 const apiLimiter = rateLimit({ 
@@ -55,16 +54,12 @@ mongoose.connect(process.env.MONGO_URI)
 // --- ROUTES ---
 
 app.get('/', (req, res) => {
-    res.json({ 
-        message: "Student Help Desk API Operational",
-        status: "Active",
-        timestamp: new Date()
-    });
+    res.json({ message: "Student Help Desk API Operational", status: "Active" });
 });
 
 app.use('/auth', authRoutes);
 
-// --- TICKET ROUTES (SECURED) ---
+// --- TICKET ROUTES ---
 
 app.get('/tickets', protect, async (req, res) => {
     try {
