@@ -17,25 +17,25 @@ const FRONTEND_URL = 'https://student-help-desk-nine.vercel.app';
 // --- MIDDLEWARE ---
 app.use(express.json());
 
-// 1. MANUAL CORS & PREFLIGHT HANDLER (Critical for Vercel)
+// 1. MANUAL CORS HANDLER (Ensures Vercel always sends correct headers)
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', FRONTEND_URL);
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
     res.header('Access-Control-Allow-Credentials', 'true');
     
-    // Immediately respond to OPTIONS requests
+    // Respond immediately to Browser Preflight (OPTIONS)
     if (req.method === 'OPTIONS') {
-        return res.sendStatus(204);
+        return res.status(200).send(); 
     }
     next();
 });
 
-// 2. Standard CORS Middleware (Safety backup)
+// 2. Standard CORS Middleware for Axios compatibility
 app.use(cors({
     origin: FRONTEND_URL,
     credentials: true,
-    optionsSuccessStatus: 204 
+    optionsSuccessStatus: 200
 }));
 
 // --- SECURITY: Rate Limiting ---
@@ -46,21 +46,19 @@ const apiLimiter = rateLimit({
 });
 app.use('/auth/', apiLimiter);
 
-// --- DATABASE CONNECTION ---
+// --- DATABASE ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ MongoDB Connected successfully'))
-    .catch(err => console.error('❌ MongoDB Connection Error:', err));
+    .then(() => console.log('✅ MongoDB Connected'))
+    .catch(err => console.error('❌ MongoDB Error:', err));
 
 // --- ROUTES ---
-
 app.get('/', (req, res) => {
-    res.json({ message: "Student Help Desk API Operational", status: "Active" });
+    res.json({ message: "API Operational", status: "Active" });
 });
 
 app.use('/auth', authRoutes);
 
-// --- TICKET ROUTES ---
-
+// --- TICKET LOGIC ---
 app.get('/tickets', protect, async (req, res) => {
     try {
         const query = req.user.role === 'admin' ? {} : { user: req.user.id };
@@ -87,42 +85,10 @@ app.post('/createTicket', protect, async (req, res) => {
     }
 });
 
-app.delete('/tickets/:id', protect, async (req, res) => {
-    try {
-        const ticket = await Ticket.findById(req.params.id);
-        if (!ticket) return res.status(404).json({ msg: 'Ticket not found' });
-
-        if (ticket.user.toString() !== req.user.id && req.user.role !== 'admin') {
-            return res.status(403).json({ msg: 'Forbidden' });
-        }
-
-        await Ticket.findByIdAndDelete(req.params.id);
-        res.json({ msg: 'Deleted successfully' });
-    } catch (err) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-app.put('/tickets/:id/resolve', protect, adminOnly, async (req, res) => {
-    try {
-        const ticket = await Ticket.findByIdAndUpdate(
-            req.params.id,
-            { 
-                status: 'Resolved',
-                adminRemark: xss(req.body.remark) || "Issue has been addressed.",
-                updatedAt: Date.now()
-            },
-            { new: true }
-        );
-        res.json(ticket);
-    } catch (err) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
+// Vercel requires exporting the app
+module.exports = app;
 
 if (require.main === module) {
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`🚀 Server ready on port ${PORT}.`));
+    app.listen(PORT, () => console.log(`🚀 Server on ${PORT}`));
 }
-
-module.exports = app;
