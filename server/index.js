@@ -39,23 +39,34 @@ app.get('/tickets', protect, async (req, res) => {
     }
 });
 
-// Create Ticket
+// Updated Create Ticket Route
 app.post('/createTicket', protect, async (req, res) => {
     try {
         const { studentName, issue } = req.body;
-        if (!studentName || !issue) return res.status(400).json({ msg: "Missing fields" });
 
+        // 1. Safety Check: If middleware failed to attach user, stop here
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ msg: "User identification failed. Please re-login." });
+        }
+
+        // 2. Data Validation
+        if (!studentName || !issue) {
+            return res.status(400).json({ msg: "Please provide both name and issue details." });
+        }
+
+        // 3. Create using the .create() method (more stable than 'new Ticket')
         const newTicket = await Ticket.create({
             studentName: xss(studentName),
             issue: xss(issue),
             user: req.user.id 
         });
+
         res.status(201).json(newTicket);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("Critical Backend Error:", err.message);
+        res.status(500).json({ error: "Server error during ticket creation." });
     }
 });
-
 // Resolve Ticket (Admin Only)
 app.put('/tickets/:id/resolve', protect, adminOnly, async (req, res) => {
     try {

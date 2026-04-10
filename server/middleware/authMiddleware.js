@@ -4,18 +4,18 @@ const jwt = require('jsonwebtoken');
 const protect = (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
-    if (!token) {
-        return res.status(401).json({ msg: 'No token, authorization denied' });
-    }
+    if (!token) return res.status(401).json({ msg: 'No token' });
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded.user; // Contains id and role
+        // Ensure this matches the payload structure from your login/register routes
+        req.user = decoded.user; 
         next();
     } catch (err) {
         res.status(401).json({ msg: 'Token is not valid' });
     }
 };
+
 
 // Middleware to check if the user is an Admin
 const adminOnly = (req, res, next) => {
