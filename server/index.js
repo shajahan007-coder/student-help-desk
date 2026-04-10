@@ -23,14 +23,19 @@ app.use('/auth', authRoutes);
 // 1. Create Ticket (Student)
 app.post('/createTicket', protect, async (req, res) => {
     try {
-        const { studentName, issue } = req.body;
+        // Add 'priority' to the destructuring list below:
+        const { studentName, issue, priority } = req.body; 
+
         const newTicket = await Ticket.create({
             studentName: xss(studentName),
             issue: xss(issue),
+            priority: priority, // Pass the priority received from frontend
             user: req.user.id 
         });
+        
         res.status(201).json(newTicket);
     } catch (err) {
+        console.error("Creation Error:", err.message);
         res.status(500).json({ error: "Ticket creation failed" });
     }
 });
