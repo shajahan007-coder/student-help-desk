@@ -7,8 +7,8 @@ const User = require('../models/User');
 const JWT_SECRET = process.env.JWT_SECRET;
 
 router.post('/register', async (req, res) => {
-    const { email, password, role } = req.body;
     try {
+        const { email, password, role } = req.body;
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ msg: 'User already exists' });
 
@@ -19,18 +19,17 @@ router.post('/register', async (req, res) => {
         await user.save();
 
         const payload = { user: { id: user._id, role: user.role } };
-        jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' }, (err, token) => {
-            if (err) throw err;
-            res.json({ token, user: { id: user._id, email: user.email, role: user.role } });
-        });
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+        
+        res.json({ token, user: { id: user._id, email: user.email, role: user.role } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
     try {
+        const { email, password } = req.body;
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ msg: 'Invalid Credentials' });
 
@@ -38,10 +37,9 @@ router.post('/login', async (req, res) => {
         if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
 
         const payload = { user: { id: user._id, role: user.role } };
-        jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' }, (err, token) => {
-            if (err) throw err;
-            res.json({ token, user: { id: user._id, email: user.email, role: user.role } });
-        });
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+
+        res.json({ token, user: { id: user._id, email: user.email, role: user.role } });
     } catch (err) {
         res.status(500).json({ error: "Server Error" });
     }

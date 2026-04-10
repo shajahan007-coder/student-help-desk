@@ -4,6 +4,7 @@ const cors = require('cors');
 const xss = require('xss');
 require('dotenv').config();
 
+// Critical: Destructure functions from exports
 const { protect } = require('./middleware/authMiddleware');
 const Ticket = require('./models/Ticket');
 const authRoutes = require('./routes/auth');
@@ -12,19 +13,19 @@ const app = express();
 
 app.use(cors({
     origin: 'https://student-help-desk-nine.vercel.app',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+    credentials: true
 }));
-
 app.use(express.json());
 
 app.use('/auth', authRoutes);
 
+// CREATE TICKET
 app.post('/createTicket', protect, async (req, res) => {
     try {
         const { studentName, issue } = req.body;
         if (!studentName || !issue) return res.status(400).json({ msg: "Missing fields" });
 
+        // req.user.id is populated by protect middleware
         const newTicket = await Ticket.create({
             studentName: xss(studentName),
             issue: xss(issue),
@@ -32,10 +33,12 @@ app.post('/createTicket', protect, async (req, res) => {
         });
         res.status(201).json(newTicket);
     } catch (err) {
-        res.status(500).json({ error: "Server Error: Could not create ticket" });
+        console.error("Ticket Create Error:", err.message);
+        res.status(500).json({ error: "Could not create ticket" });
     }
 });
 
+// GET TICKETS
 app.get('/tickets', protect, async (req, res) => {
     try {
         const query = req.user.role === 'admin' ? {} : { user: req.user.id };
