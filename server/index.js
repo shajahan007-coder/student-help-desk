@@ -11,34 +11,17 @@ const { protect, adminOnly } = require('./middleware/authMiddleware');
 
 const app = express();
 
-// --- CONFIGURATION ---
-const FRONTEND_URL = 'https://student-help-desk-nine.vercel.app'; 
-
-// --- MIDDLEWARE ---
-app.use(express.json());
-
-// 1. MANUAL CORS HANDLER (Ensures Vercel always sends correct headers)
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', FRONTEND_URL);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    
-    // Respond immediately to Browser Preflight (OPTIONS)
-    if (req.method === 'OPTIONS') {
-        return res.status(200).send(); 
-    }
-    next();
-});
-
-// 2. Standard CORS Middleware for Axios compatibility
+// --- 1. CORS MIDDLEWARE (Must be first) ---
 app.use(cors({
-    origin: FRONTEND_URL,
+    origin: 'https://student-help-desk-nine.vercel.app',
     credentials: true,
-    optionsSuccessStatus: 200
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
 }));
 
-// --- SECURITY: Rate Limiting ---
+// --- 2. BODY PARSER ---
+app.use(express.json());
+
+// --- 3. SECURITY ---
 const apiLimiter = rateLimit({ 
     windowMs: 15 * 60 * 1000, 
     max: 100, 
@@ -46,19 +29,18 @@ const apiLimiter = rateLimit({
 });
 app.use('/auth/', apiLimiter);
 
-// --- DATABASE ---
+// --- 4. DATABASE ---
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ MongoDB Connected'))
     .catch(err => console.error('❌ MongoDB Error:', err));
 
-// --- ROUTES ---
+// --- 5. ROUTES ---
 app.get('/', (req, res) => {
     res.json({ message: "API Operational", status: "Active" });
 });
 
 app.use('/auth', authRoutes);
 
-// --- TICKET LOGIC ---
 app.get('/tickets', protect, async (req, res) => {
     try {
         const query = req.user.role === 'admin' ? {} : { user: req.user.id };
@@ -85,7 +67,6 @@ app.post('/createTicket', protect, async (req, res) => {
     }
 });
 
-// Vercel requires exporting the app
 module.exports = app;
 
 if (require.main === module) {
