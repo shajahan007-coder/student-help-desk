@@ -11,36 +11,24 @@ const { protect, adminOnly } = require('./middleware/authMiddleware');
 
 const app = express();
 
-// --- 1. CORS MIDDLEWARE (Must be first) ---
+// 1. CORS - Updated to allow your specific Vercel frontend
 app.use(cors({
     origin: 'https://student-help-desk-nine.vercel.app',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
 }));
 
-// --- 2. BODY PARSER ---
 app.use(express.json());
 
-// --- 3. SECURITY ---
-const apiLimiter = rateLimit({ 
-    windowMs: 15 * 60 * 1000, 
-    max: 100, 
-    message: { msg: "Too many requests, please try again later." }
-});
-app.use('/auth/', apiLimiter);
-
-// --- 4. DATABASE ---
+// 2. DATABASE
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ MongoDB Connected'))
     .catch(err => console.error('❌ MongoDB Error:', err));
 
-// --- 5. ROUTES ---
-app.get('/', (req, res) => {
-    res.json({ message: "API Operational", status: "Active" });
-});
-
+// 3. ROUTES
 app.use('/auth', authRoutes);
 
+// Get Tickets (Filtered by user role)
 app.get('/tickets', protect, async (req, res) => {
     try {
         const query = req.user.role === 'admin' ? {} : { user: req.user.id };
@@ -51,6 +39,7 @@ app.get('/tickets', protect, async (req, res) => {
     }
 });
 
+// Create Ticket
 app.post('/createTicket', protect, async (req, res) => {
     try {
         const { studentName, issue } = req.body;
@@ -67,9 +56,29 @@ app.post('/createTicket', protect, async (req, res) => {
     }
 });
 
-module.exports = app;
+// Resolve Ticket (Admin Only)
+app.put('/tickets/:id/resolve', protect, adminOnly, async (req, res) => {
+    try {
+        const { remark } = req.body;
+        const ticket = await Ticket.findByIdAndUpdate(
+            req.params.id,
+            { status: 'Resolved', adminRemark: xss(remark || "Resolved by Admin") },
+            { new: true }
+        );
+        res.json(ticket);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
-if (require.main === module) {
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`🚀 Server on ${PORT}`));
-}
+// Delete Ticket
+app.delete('/tickets/:id', protect, async (req, res) => {
+    try {
+        await Ticket.findByIdAndDelete(req.params.id);
+        res.json({ msg: "Ticket deleted" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+module.exports = app;
