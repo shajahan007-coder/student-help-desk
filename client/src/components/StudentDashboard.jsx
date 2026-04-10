@@ -141,7 +141,9 @@ function StudentDashboard() {
                                                     {ticket.status}
                                                 </span>
                                                 <small style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Calendar size={12} /> {new Date(ticket.date).toLocaleDateString()}
+                                                    // In your ticket display component
+                                                    <p>Submitted on: {new Date(ticket.createdAt).toLocaleDateString()}</p>
+                                                    {/* <Calendar size={12} /> {new Date(ticket.date).toLocaleDateString()} */}
                                                 </small>
                                             </div>
                                             
