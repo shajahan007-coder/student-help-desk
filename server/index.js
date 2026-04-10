@@ -4,14 +4,14 @@ const cors = require('cors');
 const xss = require('xss');
 require('dotenv').config();
 
-// 1. IMPORT ROUTES AND MIDDLEWARE
-const authRoutes = require('./routes/auth'); 
-const Ticket = require('./models/Ticket'); 
+// IMPORT: Destructure the functions from the middleware file
 const { protect, adminOnly } = require('./middleware/authMiddleware');
+const Ticket = require('./models/Ticket');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 
-// 2. MIDDLEWARE CONFIGURATION
+// MIDDLEWARE
 app.use(cors({
     origin: 'https://student-help-desk-nine.vercel.app',
     credentials: true,
@@ -19,13 +19,39 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// 3. DATABASE CONNECTION
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('✅ MongoDB Connected'))
-    .catch(err => console.error('❌ MongoDB Error:', err));
-
-// 4. ROUTES
+// ROUTES
 app.use('/auth', authRoutes);
+
+// Create Ticket Route
+// Note: We use 'protect' as middleware, and (req, res) for the controller
+app.post('/createTicket', protect, async (req, res) => {
+    try {
+        const { studentName, issue } = req.body;
+
+        // 1. Validation
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ msg: "User context lost. Please log in again." });
+        }
+
+        if (!studentName || !issue) {
+            return res.status(400).json({ msg: "Both name and issue are required." });
+        }
+
+        // 2. Database Operation
+        const newTicket = await Ticket.create({
+            studentName: xss(studentName),
+            issue: xss(issue),
+            user: req.user.id 
+        });
+
+        return res.status(201).json(newTicket);
+
+    } catch (err) {
+        // This block will now capture the real error instead of the 'next' crash
+        console.error("Ticket Creation Error:", err.message);
+        return res.status(500).json({ error: "Failed to save ticket to database." });
+    }
+});
 
 // Get Tickets
 app.get('/tickets', protect, async (req, res) => {
@@ -38,62 +64,9 @@ app.get('/tickets', protect, async (req, res) => {
     }
 });
 
-// Create Ticket
-app.post('/createTicket', protect, async (req, res) => {
-    try {
-        const { studentName, issue } = req.body;
+// DATABASE & EXPORT
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('✅ MongoDB Connected'))
+    .catch(err => console.error('❌ MongoDB Error:', err));
 
-        if (!req.user || !req.user.id) {
-            return res.status(401).json({ msg: "Authentication data missing. Log in again." });
-        }
-
-        if (!studentName || !issue) {
-            return res.status(400).json({ msg: "Name and issue are required." });
-        }
-
-        const newTicket = await Ticket.create({
-            studentName: xss(studentName),
-            issue: xss(issue),
-            user: req.user.id 
-        });
-
-        res.status(201).json(newTicket);
-    } catch (err) {
-        console.error("Critical Backend Error:", err.message);
-        res.status(500).json({ error: "Server error during ticket creation." });
-    }
-});
-
-// Resolve Ticket
-app.put('/tickets/:id/resolve', protect, adminOnly, async (req, res) => {
-    try {
-        const { remark } = req.body;
-        const ticket = await Ticket.findByIdAndUpdate(
-            req.params.id,
-            { status: 'Resolved', adminRemark: xss(remark || "Resolved by Admin") },
-            { new: true }
-        );
-        res.json(ticket);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Delete Ticket
-app.delete('/tickets/:id', protect, async (req, res) => {
-    try {
-        await Ticket.findByIdAndDelete(req.params.id);
-        res.json({ msg: "Ticket deleted" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 5. EXPORT FOR VERCEL
 module.exports = app;
-
-// 6. LOCAL PORT (Only runs if file is executed directly)
-if (require.main === module) {
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`🚀 Server on ${PORT}`));
-}
