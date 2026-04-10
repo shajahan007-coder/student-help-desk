@@ -33,13 +33,18 @@ function AdminDashboard() {
         }
     }, []);
 
-    // FILTER LOGIC
-    const filteredTickets = tickets.filter(ticket => {
-        const matchesSearch = ticket.studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              ticket.issue.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = filterStatus === "All" || ticket.status === filterStatus;
-        return matchesSearch && matchesStatus;
-    });
+   // Updated FILTER LOGIC with safety checks
+const filteredTickets = tickets.filter(ticket => {
+    // We use ?. and || "" to ensure we never call toLowerCase on undefined
+    const name = ticket.studentName?.toLowerCase() || "";
+    const issue = ticket.issue?.toLowerCase() || "";
+    const search = searchTerm.toLowerCase();
+
+    const matchesSearch = name.includes(search) || issue.includes(search);
+    const matchesStatus = filterStatus === "All" || ticket.status === filterStatus;
+    
+    return matchesSearch && matchesStatus;
+});
 
     const handleResolve = async (id) => {
         const remark = prompt("Enter resolution details for the student:");
