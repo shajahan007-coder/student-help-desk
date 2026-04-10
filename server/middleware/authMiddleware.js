@@ -1,36 +1,36 @@
-const jwt = require('jsonwebtoken');
+const express = require('express');
+const xss = require('xss');
+const Ticket = require('./models/Ticket');
+// IMPORT MUST LOOK LIKE THIS:
+const { protect, adminOnly } = require('./middleware/authMiddleware');
 
-// Export explicitly as a function
-exports.protect = (req, res, next) => {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+const app = express();
+app.use(express.json());
 
-    if (!token) {
-        return res.status(401).json({ msg: 'No token, authorization denied' });
-    }
+// ... (CORS and other setup)
 
+// THE POST ROUTE
+app.post('/createTicket', protect, async (req, res) => {
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // This must match your signing payload in auth.js
-        req.user = decoded.user; 
+        const { studentName, issue } = req.body;
 
-        // CRITICAL: Check if next is a function before calling it
-        if (typeof next === 'function') {
-            next();
-        } else {
-            console.error("Middleware signature error: 'next' is not a function.");
-            return res.status(500).json({ msg: "Internal Middleware Error" });
+        // 1. Check if middleware successfully attached user
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ msg: "Authentication failed. No user ID." });
         }
-    } catch (err) {
-        console.error("JWT Verify Error:", err.message);
-        res.status(401).json({ msg: 'Token is not valid' });
-    }
-};
 
-exports.adminOnly = (req, res, next) => {
-    if (req.user && req.user.role === 'admin') {
-        if (typeof next === 'function') next();
-    } else {
-        res.status(403).json({ msg: 'Access denied: Admins only' });
+        // 2. Create the ticket
+        const newTicket = await Ticket.create({
+            studentName: xss(studentName),
+            issue: xss(issue),
+            user: req.user.id // This ID comes from the JWT payload
+        });
+
+        res.status(201).json(newTicket);
+    } catch (err) {
+        console.error("Backend Create Error:", err.message);
+        res.status(500).json({ error: "Failed to create ticket" });
     }
-};
+});
+
+module.exports = app;
