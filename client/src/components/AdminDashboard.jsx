@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, LogOut, ShieldCheck, Clock, User, MessageSquare } from 'lucide-react';
+import { CheckCircle, LogOut, ShieldCheck, Clock, User } from 'lucide-react';
 
 const API_URL = "https://student-help-desk-api.vercel.app";
 
 function AdminDashboard() {
     const [tickets, setTickets] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterStatus, setFilterStatus] = useState("All");
     const token = localStorage.getItem('token');
 
     const fetchAdminTickets = async () => {
@@ -31,6 +33,14 @@ function AdminDashboard() {
         }
     }, []);
 
+    // FILTER LOGIC
+    const filteredTickets = tickets.filter(ticket => {
+        const matchesSearch = ticket.studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              ticket.issue.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = filterStatus === "All" || ticket.status === filterStatus;
+        return matchesSearch && matchesStatus;
+    });
+
     const handleResolve = async (id) => {
         const remark = prompt("Enter resolution details for the student:");
         if (!remark) return;
@@ -40,9 +50,9 @@ function AdminDashboard() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setTickets(tickets.map(t => t._id === id ? res.data : t));
-            alert("Ticket resolved and student notified!");
+            alert("Ticket resolved!");
         } catch (err) {
-            alert("Action failed. Verification required.");
+            alert("Action failed.");
         }
     };
 
@@ -55,27 +65,46 @@ function AdminDashboard() {
         <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 20px" }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
                 <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
-                    <ShieldCheck size={36} color="#10b981" /> Admin Control Center
+                    <ShieldCheck size={36} color="#10b981" /> Admin Control
                 </h1>
-                <button 
-                    onClick={handleLogout} 
-                    style={{ background: '#f1f5f9', color: '#475569', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
-                >
+                <button onClick={handleLogout} style={{ background: '#f1f5f9', color: '#475569', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>
                     Logout
                 </button>
             </div>
 
+            {/* SEARCH & FILTER CONTROLS */}
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
+                <input 
+                    type="text" 
+                    placeholder="Search by student or issue..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ flex: 2, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}
+                />
+                <select 
+                    value={filterStatus} 
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white' }}
+                >
+                    <option value="All">All Statuses</option>
+                    <option value="Open">Open</option>
+                    <option value="Resolved">Resolved</option>
+                </select>
+            </div>
+
             <div style={{ display: 'grid', gap: '20px' }}>
                 <AnimatePresence>
-                    {tickets.length === 0 ? (
-                        <p style={{ textAlign: 'center', color: '#94a3b8' }}>No student tickets found.</p>
+                    {/* CRITICAL CHANGE: We map over filteredTickets, not tickets */}
+                    {filteredTickets.length === 0 ? (
+                        <p style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>No tickets match your search.</p>
                     ) : (
-                        tickets.map((ticket) => (
+                        filteredTickets.map((ticket) => (
                             <motion.div 
                                 key={ticket._id} 
                                 layout 
                                 initial={{ opacity: 0, y: 10 }} 
                                 animate={{ opacity: 1, y: 0 }} 
+                                exit={{ opacity: 0, scale: 0.95 }}
                                 className="card"
                                 style={{ 
                                     background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
@@ -109,10 +138,7 @@ function AdminDashboard() {
                                 {ticket.status === 'Open' && (
                                     <button 
                                         onClick={() => handleResolve(ticket._id)} 
-                                        style={{ 
-                                            background: '#10b981', color: 'white', border: 'none', padding: '10px 18px', 
-                                            borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600'
-                                        }}
+                                        style={{ background: '#10b981', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600' }}
                                     >
                                         <CheckCircle size={18} /> Resolve
                                     </button>
