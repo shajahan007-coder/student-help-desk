@@ -10,7 +10,12 @@ const TicketSchema = new mongoose.Schema({
         default: 'Open', 
         enum: ['Open', 'In Progress', 'Resolved', 'Closed'] 
     },
-    adminRemark: { type: String, default: "" }
+    priority: { 
+    type: String, 
+    enum: ['Low', 'Medium', 'High'], 
+    default: 'Medium'},
+    adminRemark: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now }
 }, { 
     timestamps: true // This adds 'createdAt' and 'updatedAt' automatically
 });
