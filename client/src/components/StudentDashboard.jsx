@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Send, LogOut, Loader2, Calendar, MessageSquare } from 'lucide-react';
+import { Trash2, Send, LogOut, Loader2, MessageSquare, CheckCircle, Clock } from 'lucide-react';
 
 const API_URL = "https://student-help-desk-api.vercel.app"; 
 
@@ -84,29 +84,34 @@ function StudentDashboard() {
                     <h2 style={{ margin: 0 }}>Student Dashboard</h2>
                     <p style={{ color: '#64748b', margin: 0 }}>Welcome, {userData?.email}</p>
                 </div>
-                <button onClick={handleLogout} className="btn-primary" style={{ backgroundColor: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={handleLogout} className="btn-logout" style={{ backgroundColor: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <LogOut size={18} /> Logout
                 </button>
             </div>
 
             {/* New Ticket Form */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ marginBottom: '40px' }}>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ marginBottom: '40px', background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
                 <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <Send size={20} color="#2563eb" /> New Support Request
                 </h3>
-                <form onSubmit={handleSubmit}>
-                    <label style={{ fontSize: '14px', fontWeight: '600' }}>Your Name</label>
-                    <input 
-                        type="text" placeholder="e.g. Shajahan" value={name}
-                        onChange={(e) => setName(e.target.value)} required 
-                    />
-                    <label style={{ fontSize: '14px', fontWeight: '600' }}>Issue Details</label>
-                    <textarea 
-                        placeholder="Describe your technical issue or question..." value={issue}
-                        onChange={(e) => setIssue(e.target.value)} required 
-                        style={{ minHeight: '100px' }}
-                    />
-                    <button type="submit" className="btn-primary" style={{ width: '100%' }}>Submit Ticket</button>
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '5px' }}>Your Name</label>
+                        <input 
+                            type="text" placeholder="e.g. Shaha" value={name}
+                            onChange={(e) => setName(e.target.value)} required 
+                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '5px' }}>Issue Details</label>
+                        <textarea 
+                            placeholder="Describe your technical issue or question..." value={issue}
+                            onChange={(e) => setIssue(e.target.value)} required 
+                            style={{ width: '100%', minHeight: '100px', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                        />
+                    </div>
+                    <button type="submit" className="btn-primary" style={{ backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Submit Ticket</button>
                 </form>
             </motion.div>
 
@@ -130,6 +135,7 @@ function StudentDashboard() {
                                     exit={{ opacity: 0, scale: 0.95 }}
                                     className="card"
                                     style={{ 
+                                        padding: '20px', background: '#fff', borderRadius: '12px', boxShadow: '0 2px 4px rgb(0 0 0 / 0.05)',
                                         borderLeft: `6px solid ${ticket.status === 'Open' ? '#f59e0b' : '#10b981'}`,
                                         textAlign: 'left'
                                     }}
@@ -137,23 +143,26 @@ function StudentDashboard() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-                                                <span className={`badge ${ticket.status === 'Open' ? 'badge-open' : 'badge-resolved'}`}>
+                                                <span style={{ 
+                                                    padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
+                                                    background: ticket.status === 'Open' ? '#fef3c7' : '#d1fae5',
+                                                    color: ticket.status === 'Open' ? '#92400e' : '#065f46'
+                                                }}>
                                                     {ticket.status}
                                                 </span>
                                                 <small style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    // In your ticket display component
-                                                    <p>Submitted on: {new Date(ticket.createdAt).toLocaleDateString()}</p>
-                                                    {/* <Calendar size={12} /> {new Date(ticket.date).toLocaleDateString()} */}
+                                                    <Clock size={12} /> {new Date(ticket.createdAt).toLocaleDateString()}
                                                 </small>
                                             </div>
                                             
-                                            <p style={{ margin: '10px 0', fontWeight: '600', fontSize: '1.1rem' }}>{ticket.issue}</p>
+                                            <p style={{ margin: '10px 0', fontWeight: '600', fontSize: '1.1rem', color: '#1e293b' }}>{ticket.issue}</p>
                                             
-                                            {/* Admin Remark Section - Upgraded! */}
                                             {ticket.status === 'Resolved' && ticket.adminRemark && (
                                                 <div style={{ background: '#f0fdf4', padding: '12px', borderRadius: '8px', marginTop: '10px', border: '1px solid #bbf7d0' }}>
                                                     <p style={{ margin: 0, fontSize: '13px', color: '#166534' }}>
-                                                        <strong style={{ display: 'block', marginBottom: '4px' }}>✅ Admin Response:</strong> 
+                                                        <strong style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                                                            <CheckCircle size={14} /> Admin Response:
+                                                        </strong> 
                                                         {ticket.adminRemark}
                                                     </p>
                                                 </div>
